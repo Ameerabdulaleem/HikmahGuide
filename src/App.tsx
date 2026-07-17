@@ -1007,6 +1007,8 @@ export default function App() {
               animation: 'fadeInUp 0.75s ease-out 0.38s both',
             }}
           >
+            <TypingDisclaimer text="Disclaimer : Guidance is for reflection/knowledge and should not replace qualified Islamic scholarship for legal or religious rulings." />
+
             <div style={{ position: 'relative' }}>
               <textarea
                 ref={textareaRef}
@@ -1182,9 +1184,9 @@ export default function App() {
           >
             {[
               { label: 'API Documentation', href: '#' },
-              { label: 'OKX.AI', href: '#' },
-              { label: 'X (Twitter)', href: '#' },
-              { label: 'GitHub', href: '#' },
+              { label: 'OKX.AI', href: 'https://www.okx.ai/agents' },
+              { label: 'X (Twitter)', href: 'https://x.com/AmeerAbdulaleem' },
+              { label: 'GitHub', href: 'https://github.com/Ameerabdulaleem/HikmahGuide' },
             ].map((link) => (
               <FooterLink key={link.label} href={link.href}>{link.label}</FooterLink>
             ))}
@@ -1264,6 +1266,38 @@ function SeekButton({ active, onClick }: { active: boolean; onClick: () => void 
       <LanternIcon size={18} />
       Seek Guidance
     </button>
+  )
+}
+
+function TypingDisclaimer({ text, speed = 35 }: { text: string; speed?: number }) {
+  const [displayed, setDisplayed] = useState('')
+
+  useEffect(() => {
+    let index = 0
+    const interval = window.setInterval(() => {
+      setDisplayed(text.slice(0, index + 1))
+      index += 1
+      if (index >= text.length) {
+        window.clearInterval(interval)
+      }
+    }, speed)
+
+    return () => window.clearInterval(interval)
+  }, [text, speed])
+
+  return (
+    <p
+      style={{
+        color: '#6a7f9a',
+        fontSize: '0.78rem',
+        lineHeight: 1.65,
+        margin: '0 0 14px',
+        minHeight: '1.2em',
+        fontStyle: 'italic',
+      }}
+    >
+      {displayed}
+    </p>
   )
 }
 
