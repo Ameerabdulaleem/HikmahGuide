@@ -9,7 +9,7 @@ export interface GuidanceResponse {
   practical_steps: string[]
 }
 
-async function getLiveGuidance(question: string): Promise<{ guidance_summary: string; full_guidance: string } | null> {
+async function getLiveGuidance(question: string): Promise<{ success: boolean; guidance_summary?: string; full_guidance?: string; error?: string }> {
   try {
     const response = await fetch('/api/guidance', {
       method: 'POST',
@@ -19,14 +19,16 @@ async function getLiveGuidance(question: string): Promise<{ guidance_summary: st
       body: JSON.stringify({ question }),
     })
 
+    const payload = await response.json().catch(() => ({}))
+
     if (!response.ok) {
-      return null
+      return { success: false, error: payload?.details || payload?.error || 'The live guidance route failed.' }
     }
 
-    return await response.json()
+    return { success: true, guidance_summary: payload.guidance_summary, full_guidance: payload.full_guidance }
   } catch (error) {
     console.error('Live guidance request failed:', error)
-    return null
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown request error' }
   }
 }
 
@@ -38,7 +40,7 @@ export async function generateGuidance(question: string): Promise<GuidanceRespon
 
   if (import.meta.env.PROD) {
     const liveResponse = await getLiveGuidance(question)
-    if (liveResponse) {
+    if (liveResponse.success && liveResponse.guidance_summary && liveResponse.full_guidance) {
       return {
         mode: 'groq',
         guidance_summary: liveResponse.guidance_summary,

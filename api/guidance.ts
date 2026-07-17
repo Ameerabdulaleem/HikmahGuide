@@ -24,7 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const groq = new Groq({ apiKey, dangerouslyAllowBrowser: false })
     const completion = await groq.chat.completions.create({
-      model: 'llama-3.1-70b-versatile',
+      model: 'llama-3.3-70b-versatile',
       temperature: 0.7,
       max_tokens: 900,
       messages: [
@@ -43,7 +43,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       full_guidance: llmText,
     })
   } catch (error) {
-    console.error(error)
-    res.status(500).json({ error: 'Groq request failed' })
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    console.error('Groq request failed:', message)
+    res.status(500).json({ error: 'Groq request failed', details: message })
   }
 }
