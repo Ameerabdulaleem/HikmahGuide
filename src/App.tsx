@@ -778,7 +778,7 @@ export default function App() {
   const [uiState, setUiState] = useState<UIState>('idle')
   const [guidance, setGuidance] = useState<GuidanceData | null>(null)
   const [variant, setVariant] = useState<Variant>('serene')
-  const liveReady = typeof window !== 'undefined' ? false : Boolean(import.meta.env.VITE_GROQ_API_KEY || import.meta.env.GROQ_API_KEY)
+  const liveReady = import.meta.env.PROD
   const [status, setStatus] = useState<{ mode: 'groq' | 'fallback' | 'loading'; label: string; detail: string }>({
     mode: liveReady ? 'groq' : 'fallback',
     label: liveReady ? 'Live • Groq ready' : 'Fallback • local mode',
