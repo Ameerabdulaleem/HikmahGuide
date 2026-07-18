@@ -13,7 +13,7 @@ interface GuidanceData {
   quranVerses: { arabic: string; translation: string; reference: string }[]
   hadiths: { text: string; source: string }[]
   practicalSteps: string[]
-  dua: { arabic: string; transliteration: string; translation: string }
+  dua: { arabic: string; transliteration: string; translation: string; source: string }
 }
 
 const MOCK_RESPONSE: GuidanceData = {
@@ -61,6 +61,7 @@ const MOCK_RESPONSE: GuidanceData = {
     arabic: 'اللَّهُمَّ إِنِّي أَعُوذُ بِكَ مِنَ الْهَمِّ وَالْحَزَنِ',
     transliteration: 'Allāhumma innī aʿūdhu bika minal-hammi wal-ḥazan',
     translation: 'O Allah, I seek refuge in You from worry and grief.',
+    source: 'Hisnul Muslim; Sahih al-Bukhari 6369',
   },
 }
 
@@ -389,6 +390,8 @@ function ResponseCard({ data, onReset, status }: { data: GuidanceData; onReset: 
       ...data.quranVerses.map((v) => `Qurʾān: ${v.translation} — ${v.reference}`),
       '',
       ...data.hadiths.map((h) => `Ḥadīth: ${h.text} — ${h.source}`),
+      '',
+      `Duʿāʾ: ${data.dua.translation} — ${data.dua.source}`,
     ].join('\n')
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true)
@@ -647,7 +650,10 @@ function ResponseCard({ data, onReset, status }: { data: GuidanceData; onReset: 
           <p style={{ color: '#a07840', fontSize: '0.85rem', fontStyle: 'italic', marginBottom: '4px' }}>
             {data.dua.transliteration}
           </p>
-          <p style={{ color: '#6a5030', fontSize: '0.8rem' }}>"{data.dua.translation}"</p>
+          <p style={{ color: '#6a5030', fontSize: '0.8rem', marginBottom: '10px' }}>"{data.dua.translation}"</p>
+          <p style={{ color: '#8a6a34', fontSize: '0.68rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            {data.dua.source}
+          </p>
         </div>
 
         <div

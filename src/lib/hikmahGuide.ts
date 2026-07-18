@@ -1,5 +1,6 @@
 import { getAyah } from './islamicApi'
 import { selectTwoHadith, type Hadith } from './hadithLibrary'
+import { selectDua, type Dua } from './duaLibrary'
 
 type Verse = { arabic: string; translation: string; reference: string }
 
@@ -11,7 +12,7 @@ export interface GuidanceResponse {
   quranVerses: Verse[]
   hadiths: Hadith[]
   practicalSteps: string[]
-  dua: { arabic: string; transliteration: string; translation: string }
+  dua: Dua
 }
 
 interface LiveVerse { surah?: number; ayah?: number; arabic?: string; translation?: string; reference?: string }
@@ -23,7 +24,7 @@ interface LivePayload {
   quran?: LiveVerse[]
   hadith_themes?: string[]
   practical_steps?: string[]
-  dua?: { arabic?: string; transliteration?: string; translation?: string }
+  dua_theme?: string
 }
 
 const FALLBACK: GuidanceResponse = {
@@ -68,6 +69,7 @@ const FALLBACK: GuidanceResponse = {
     arabic: 'اللَّهُمَّ إِنِّي أَعُوذُ بِكَ مِنَ الْهَمِّ وَالْحَزَنِ',
     transliteration: 'Allāhumma innī aʿūdhu bika minal-hammi wal-ḥazan',
     translation: 'O Allah, I seek refuge in You from worry and grief.',
+    source: 'Hisnul Muslim; Sahih al-Bukhari 6369',
   },
 }
 
@@ -168,10 +170,6 @@ export async function generateGuidance(question: string): Promise<GuidanceRespon
     quranVerses,
     hadiths: hadiths.length >= 2 ? hadiths : FALLBACK.hadiths,
     practicalSteps,
-    dua: {
-      arabic: live.dua?.arabic?.trim() || FALLBACK.dua.arabic,
-      transliteration: live.dua?.transliteration?.trim() || FALLBACK.dua.transliteration,
-      translation: live.dua?.translation?.trim() || FALLBACK.dua.translation,
-    },
+    dua: selectDua(live.dua_theme),
   }
 }
