@@ -16,10 +16,7 @@ Respond with ONLY a single valid JSON object (no markdown, no code fences) match
     "translation": "the English (Sahih International style) translation of that exact verse",
     "reference": "Surah name, chapter:verse — e.g. Surah Ar-Ra'd, 13:28"
   },
-  "hadith": {
-    "text": "the English text of one authentic hadith directly relevant to the question",
-    "source": "collection and number — e.g. Sahih Muslim 2999"
-  },
+  "hadith_theme": "<one theme keyword — see allowed list below — that best matches the question>",
   "practical_steps": ["4-5 concrete, actionable steps"],
   "dua": {
     "arabic": "an authentic dua in Arabic that directly relates to the question's theme",
@@ -29,7 +26,9 @@ Respond with ONLY a single valid JSON object (no markdown, no code fences) match
 }
 
 Rules:
-- Choose a Quran verse and a hadith that DIRECTLY relate to the specific question. The surah/ayah numbers must be accurate for the verse you cite.
+- Choose a Quran verse that DIRECTLY relates to the specific question. The surah/ayah numbers must be accurate for the verse you cite.
+- For "hadith_theme", pick exactly ONE value from this allowed list that best fits the question. Do NOT write out any hadith text or number yourself:
+  anxiety, patience, gratitude, trust, forgiveness, provision, family, kindness, knowledge, repentance, hardship, intention, prayer, charity, hope, anger, humility, honesty, contentment, brotherhood, marriage, health, dhikr, character, death, general
 - The dua must match the theme of the question (e.g. anxiety, guidance, forgiveness, provision).
 - Use only authentic sources. Never invent or fabricate a hadith or verse.
 - Do not give binding fatwas or predict the future.`
@@ -39,7 +38,7 @@ interface GuidancePayload {
   main_guidance?: string
   key_reflections?: string[]
   quran?: { surah?: number; ayah?: number; arabic?: string; translation?: string; reference?: string }
-  hadith?: { text?: string; source?: string }
+  hadith_theme?: string
   practical_steps?: string[]
   dua?: { arabic?: string; transliteration?: string; translation?: string }
 }

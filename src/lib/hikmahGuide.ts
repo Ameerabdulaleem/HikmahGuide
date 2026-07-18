@@ -1,4 +1,5 @@
 import { getAyah } from './islamicApi'
+import { selectHadith } from './hadithLibrary'
 
 export interface GuidanceResponse {
   mode: 'groq' | 'fallback'
@@ -16,7 +17,7 @@ interface LivePayload {
   main_guidance?: string
   key_reflections?: string[]
   quran?: { surah?: number; ayah?: number; arabic?: string; translation?: string; reference?: string }
-  hadith?: { text?: string; source?: string }
+  hadith_theme?: string
   practical_steps?: string[]
   dua?: { arabic?: string; transliteration?: string; translation?: string }
 }
@@ -132,10 +133,7 @@ export async function generateGuidance(question: string): Promise<GuidanceRespon
     mainGuidance: live.main_guidance?.trim() || FALLBACK.mainGuidance,
     keyReflections,
     quranVerse,
-    hadith: {
-      text: live.hadith?.text?.trim() || FALLBACK.hadith.text,
-      source: live.hadith?.source?.trim() || FALLBACK.hadith.source,
-    },
+    hadith: selectHadith(live.hadith_theme),
     practicalSteps,
     dua: {
       arabic: live.dua?.arabic?.trim() || FALLBACK.dua.arabic,
