@@ -353,8 +353,9 @@ function ResponseCard({ data, onReset, status }: { data: GuidanceData; onReset: 
   const [copied, setCopied] = useState(false)
   const [digest, setDigest] = useState('')
 
-  // Proof = SHA256(question + timestamp) — reproducible from the two values shown below.
-  const proofInput = `${data.query}${data.timestamp}`
+  // Proof = SHA256(question + timestamp) — reproducible from the exact two values shown below.
+  const isoTimestamp = new Date(data.timestamp).toISOString()
+  const proofInput = `${data.query}${isoTimestamp}`
   useEffect(() => {
     let active = true
     sha256Hex(proofInput).then((hex) => {
@@ -368,10 +369,10 @@ function ResponseCard({ data, onReset, status }: { data: GuidanceData; onReset: 
   const proof = {
     agent: 'OKX Lifestyle Agent',
     label: 'Proof / Hash',
-    algorithm: 'SHA-256(question + timestamp)',
-    timestamp: new Date(data.timestamp).toISOString(),
+    formula: `SHA-256("${data.query}" + ${isoTimestamp})`,
+    timestamp: isoTimestamp,
     digest: digest ? `0x${digest}` : 'computing…',
-    note: 'Reproducible proof of this response: SHA-256 of the question concatenated with the timestamp above.',
+    note: 'Reproducible proof of this response: SHA-256 of your question combined with the timestamp above.',
   }
 
   const handleCopy = () => {
@@ -379,7 +380,7 @@ function ResponseCard({ data, onReset, status }: { data: GuidanceData; onReset: 
       `HikmahGuide — "${data.query}"`,
       '',
       `Proof / Hash: ${proof.digest}`,
-      `Algorithm: ${proof.algorithm}`,
+      `Formula: ${proof.formula}`,
       `Timestamp: ${proof.timestamp}`,
       `Agent: ${proof.agent}`,
       '',
@@ -481,48 +482,6 @@ function ResponseCard({ data, onReset, status }: { data: GuidanceData; onReset: 
           </span>
         </div>
         <p style={{ margin: '0 0 20px', fontSize: '0.78rem', color: '#4a6080' }}>{status.detail}</p>
-
-        <div
-          style={{
-            marginBottom: '24px',
-            padding: '14px 16px',
-            borderRadius: '14px',
-            background: 'rgba(7, 20, 30, 0.82)',
-            border: '1px solid rgba(14,212,160,0.16)',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#6f9aa3' }}>
-              {proof.label}
-            </span>
-            <span style={{ fontSize: '0.72rem', color: '#0ed4a0', fontWeight: 600 }}>
-              {proof.agent}
-            </span>
-          </div>
-          <div
-            style={{
-              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-              fontSize: '0.86rem',
-              color: '#ecf8ff',
-              wordBreak: 'break-all',
-              letterSpacing: '0.03em',
-            }}
-          >
-            {proof.digest}
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', margin: '8px 0 0' }}>
-            <span style={{ fontSize: '0.72rem', color: '#6f9aa3', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
-              {proof.algorithm}
-            </span>
-            <span style={{ fontSize: '0.72rem', color: '#6f9aa3', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
-              {proof.timestamp}
-            </span>
-          </div>
-          <p style={{ margin: '8px 0 0', fontSize: '0.75rem', color: '#4a6080', lineHeight: 1.6 }}>
-            {proof.note}
-          </p>
-        </div>
 
         <div style={{ height: '1px', background: 'rgba(200,168,90,0.09)', marginBottom: '28px' }} />
 
@@ -689,6 +648,45 @@ function ResponseCard({ data, onReset, status }: { data: GuidanceData; onReset: 
             {data.dua.transliteration}
           </p>
           <p style={{ color: '#6a5030', fontSize: '0.8rem' }}>"{data.dua.translation}"</p>
+        </div>
+
+        <div
+          style={{
+            marginBottom: '28px',
+            padding: '14px 16px',
+            borderRadius: '14px',
+            background: 'rgba(7, 20, 30, 0.82)',
+            border: '1px solid rgba(14,212,160,0.16)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#6f9aa3' }}>
+              {proof.label}
+            </span>
+            <span style={{ fontSize: '0.72rem', color: '#0ed4a0', fontWeight: 600 }}>
+              {proof.agent}
+            </span>
+          </div>
+          <div
+            style={{
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+              fontSize: '0.86rem',
+              color: '#ecf8ff',
+              wordBreak: 'break-all',
+              letterSpacing: '0.03em',
+            }}
+          >
+            {proof.digest}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', margin: '8px 0 0' }}>
+            <span style={{ fontSize: '0.72rem', color: '#6f9aa3', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', wordBreak: 'break-all' }}>
+              {proof.formula}
+            </span>
+          </div>
+          <p style={{ margin: '8px 0 0', fontSize: '0.75rem', color: '#4a6080', lineHeight: 1.6 }}>
+            {proof.note}
+          </p>
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center' }}>
