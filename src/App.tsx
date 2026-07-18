@@ -12,7 +12,7 @@ interface GuidanceData {
   quranVerse: { arabic: string; translation: string; reference: string }
   hadith: { text: string; source: string }
   practicalSteps: string[]
-  dua: string
+  dua: { arabic: string; transliteration: string; translation: string }
 }
 
 const MOCK_RESPONSE: GuidanceData = {
@@ -42,7 +42,11 @@ const MOCK_RESPONSE: GuidanceData = {
     'Journal your worries, then formally surrender them to Allah through duʿāʾ before sleep',
     'Seek a trusted community — the Prophet ﷺ emphasized brotherhood and mutual support',
   ],
-  dua: 'اللَّهُمَّ إِنِّي أَعُوذُ بِكَ مِنَ الْهَمِّ وَالْحَزَنِ\nAllāhumma innī aʿūdhu bika minal-hammi wal-ḥazan\n"O Allah, I seek refuge in You from worry and grief."',
+  dua: {
+    arabic: 'اللَّهُمَّ إِنِّي أَعُوذُ بِكَ مِنَ الْهَمِّ وَالْحَزَنِ',
+    transliteration: 'Allāhumma innī aʿūdhu bika minal-hammi wal-ḥazan',
+    translation: 'O Allah, I seek refuge in You from worry and grief.',
+  },
 }
 
 function createProofBundle(query: string, data: GuidanceData) {
@@ -53,7 +57,7 @@ function createProofBundle(query: string, data: GuidanceData) {
     data.quranVerse.reference,
     data.hadith.source,
     data.practicalSteps.join('|'),
-    data.dua,
+    data.dua.arabic,
   ].join('|')
 
   let hash = 0x811c9dc5
@@ -627,12 +631,12 @@ function ResponseCard({ data, onReset, status }: { data: GuidanceData; onReset: 
               marginBottom: '10px',
             }}
           >
-            {data.dua.split('\n')[0]}
+            {data.dua.arabic}
           </p>
           <p style={{ color: '#a07840', fontSize: '0.85rem', fontStyle: 'italic', marginBottom: '4px' }}>
-            {data.dua.split('\n')[1]}
+            {data.dua.transliteration}
           </p>
-          <p style={{ color: '#6a5030', fontSize: '0.8rem' }}>{data.dua.split('\n')[2]}</p>
+          <p style={{ color: '#6a5030', fontSize: '0.8rem' }}>"{data.dua.translation}"</p>
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center' }}>
@@ -800,17 +804,14 @@ export default function App() {
     try {
       const result = await generateGuidance(finalQ)
       const nextGuidance: GuidanceData = {
-        ...MOCK_RESPONSE,
         query: finalQ,
-        opening: result.guidance_summary,
-        mainGuidance: result.full_guidance,
-        keyReflections: [
-          result.practical_steps[0] ?? 'Make dua with sincerity',
-          result.practical_steps[1] ?? 'Consult knowledgeable people',
-          result.practical_steps[2] ?? 'Be patient and trust Allah\'s plan',
-        ],
-        practicalSteps: result.practical_steps.length > 0 ? result.practical_steps : MOCK_RESPONSE.practicalSteps,
-        dua: `اللَّهُمَّ ارْزُقْنِي الْهُدَى وَالسَّكِينَةِ\n${result.guidance_summary}\nMay Allah grant clarity and ease.`,
+        opening: result.opening,
+        mainGuidance: result.mainGuidance,
+        keyReflections: result.keyReflections,
+        quranVerse: result.quranVerse,
+        hadith: result.hadith,
+        practicalSteps: result.practicalSteps,
+        dua: result.dua,
       }
       setGuidance(nextGuidance)
       setStatus({
