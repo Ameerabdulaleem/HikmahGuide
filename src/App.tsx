@@ -6,6 +6,7 @@ type UIState = 'idle' | 'loading' | 'response'
 
 interface GuidanceData {
   query: string
+  timestamp: number
   opening: string
   mainGuidance: string
   keyReflections: string[]
@@ -17,6 +18,7 @@ interface GuidanceData {
 
 const MOCK_RESPONSE: GuidanceData = {
   query: 'How to overcome anxiety?',
+  timestamp: 0,
   opening:
     'May Allah grant you peace and ease your heart. Anxiety is a deeply human experience, and Islam offers both spiritual anchoring and practical wisdom to help you navigate these moments with trust in Allah.',
   mainGuidance:
@@ -62,31 +64,15 @@ const MOCK_RESPONSE: GuidanceData = {
   },
 }
 
-function createProofBundle(query: string, data: GuidanceData) {
-  const plainText = [
-    'OKX Lifestyle Agent',
-    query,
-    data.mainGuidance,
-    data.quranVerses.map((v) => v.reference).join('|'),
-    data.hadiths.map((h) => h.source).join('|'),
-    data.practicalSteps.join('|'),
-    data.dua.arabic,
-  ].join('|')
-
-  let hash = 0x811c9dc5
-  for (let i = 0; i < plainText.length; i += 1) {
-    hash ^= plainText.charCodeAt(i)
-    hash = Math.imul(hash, 0x01000193)
-  }
-
-  const digest = (hash >>> 0).toString(16).padStart(8, '0').toUpperCase()
-
-  return {
-    agent: 'OKX Lifestyle Agent',
-    label: 'Proof / Hash',
-    digest: `tx-${digest.slice(0, 8)}-${digest.slice(8, 16)}-${digest.slice(16, 24)}-${digest.slice(24)}`,
-    note: 'This transaction-style reference can be used for attestation, auditability, or future on-chain verification.',
-  }
+// Simple, verifiable proof: SHA256(question + timestamp).
+// Anyone can reproduce it with the shown question and timestamp, which fits the
+// OKX.AI ecosystem's emphasis on transparent, auditable agent output.
+async function sha256Hex(input: string): Promise<string> {
+  const bytes = new TextEncoder().encode(input)
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
 }
 
 const EXAMPLE_PROMPTS = [
@@ -365,13 +351,36 @@ function LoadingIndicator() {
 
 function ResponseCard({ data, onReset, status }: { data: GuidanceData; onReset: () => void; status: { mode: 'groq' | 'fallback' | 'loading'; label: string; detail: string } }) {
   const [copied, setCopied] = useState(false)
-  const proof = createProofBundle(data.query, data)
+  const [digest, setDigest] = useState('')
+
+  // Proof = SHA256(question + timestamp) — reproducible from the two values shown below.
+  const proofInput = `${data.query}${data.timestamp}`
+  useEffect(() => {
+    let active = true
+    sha256Hex(proofInput).then((hex) => {
+      if (active) setDigest(hex)
+    })
+    return () => {
+      active = false
+    }
+  }, [proofInput])
+
+  const proof = {
+    agent: 'OKX Lifestyle Agent',
+    label: 'Proof / Hash',
+    algorithm: 'SHA-256(question + timestamp)',
+    timestamp: new Date(data.timestamp).toISOString(),
+    digest: digest ? `0x${digest}` : 'computing…',
+    note: 'Reproducible proof of this response: SHA-256 of the question concatenated with the timestamp above.',
+  }
 
   const handleCopy = () => {
     const text = [
       `HikmahGuide — "${data.query}"`,
       '',
       `Proof / Hash: ${proof.digest}`,
+      `Algorithm: ${proof.algorithm}`,
+      `Timestamp: ${proof.timestamp}`,
       `Agent: ${proof.agent}`,
       '',
       data.mainGuidance,
@@ -501,6 +510,14 @@ function ResponseCard({ data, onReset, status }: { data: GuidanceData; onReset: 
             }}
           >
             {proof.digest}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', margin: '8px 0 0' }}>
+            <span style={{ fontSize: '0.72rem', color: '#6f9aa3', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
+              {proof.algorithm}
+            </span>
+            <span style={{ fontSize: '0.72rem', color: '#6f9aa3', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
+              {proof.timestamp}
+            </span>
           </div>
           <p style={{ margin: '8px 0 0', fontSize: '0.75rem', color: '#4a6080', lineHeight: 1.6 }}>
             {proof.note}
@@ -840,6 +857,7 @@ export default function App() {
       const result = await generateGuidance(finalQ)
       const nextGuidance: GuidanceData = {
         query: finalQ,
+        timestamp: Date.now(),
         opening: result.opening,
         mainGuidance: result.mainGuidance,
         keyReflections: result.keyReflections,
@@ -856,7 +874,7 @@ export default function App() {
       })
     } catch (error) {
       console.error(error)
-      setGuidance({ ...MOCK_RESPONSE, query: finalQ })
+      setGuidance({ ...MOCK_RESPONSE, query: finalQ, timestamp: Date.now() })
       setStatus({ mode: 'fallback', label: 'Guidance ready', detail: 'May Allah accept this guidance and grant you clarity and ease.' })
     } finally {
       setUiState('response')
