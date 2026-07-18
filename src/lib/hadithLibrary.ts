@@ -435,3 +435,53 @@ export function selectHadith(theme: string | undefined): Hadith {
   const list = HADITH_LIBRARY[key] || HADITH_LIBRARY.general
   return list[Math.floor(Math.random() * list.length)]
 }
+
+// Select two distinct authentic hadith based on up to two themes.
+// Falls back to a second theme (or extra picks from the same theme) to avoid duplicates.
+export function selectTwoHadith(themes: Array<string | undefined>): Hadith[] {
+  const keys = (themes.length > 0 ? themes : ['general'])
+    .map((t) => (t || 'general').toLowerCase().trim())
+    .filter((t) => t.length > 0)
+
+  const pool: Hadith[] = []
+  const seen = new Set<string>()
+
+  const addFrom = (key: string) => {
+    const list = HADITH_LIBRARY[key] || HADITH_LIBRARY.general
+    for (const h of list) {
+      if (!seen.has(h.source)) {
+        seen.add(h.source)
+        pool.push(h)
+      }
+    }
+  }
+
+  keys.forEach(addFrom)
+  // Ensure we always have at least two options to choose from.
+  if (pool.length < 2) addFrom('general')
+
+  // Prefer one hadith from each of the (distinct) themes when possible.
+  const result: Hadith[] = []
+  const usedSources = new Set<string>()
+
+  for (const key of keys) {
+    if (result.length >= 2) break
+    const list = (HADITH_LIBRARY[key] || HADITH_LIBRARY.general).filter((h) => !usedSources.has(h.source))
+    if (list.length > 0) {
+      const pick = list[Math.floor(Math.random() * list.length)]
+      result.push(pick)
+      usedSources.add(pick.source)
+    }
+  }
+
+  // Top up from the combined pool if we still need a second distinct hadith.
+  while (result.length < 2) {
+    const remaining = pool.filter((h) => !usedSources.has(h.source))
+    if (remaining.length === 0) break
+    const pick = remaining[Math.floor(Math.random() * remaining.length)]
+    result.push(pick)
+    usedSources.add(pick.source)
+  }
+
+  return result
+}

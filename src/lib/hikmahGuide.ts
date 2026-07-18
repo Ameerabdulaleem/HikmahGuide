@@ -1,23 +1,27 @@
 import { getAyah } from './islamicApi'
-import { selectHadith } from './hadithLibrary'
+import { selectTwoHadith, type Hadith } from './hadithLibrary'
+
+type Verse = { arabic: string; translation: string; reference: string }
 
 export interface GuidanceResponse {
   mode: 'groq' | 'fallback'
   opening: string
   mainGuidance: string
   keyReflections: string[]
-  quranVerse: { arabic: string; translation: string; reference: string }
-  hadith: { text: string; source: string }
+  quranVerses: Verse[]
+  hadiths: Hadith[]
   practicalSteps: string[]
   dua: { arabic: string; transliteration: string; translation: string }
 }
+
+interface LiveVerse { surah?: number; ayah?: number; arabic?: string; translation?: string; reference?: string }
 
 interface LivePayload {
   opening?: string
   main_guidance?: string
   key_reflections?: string[]
-  quran?: { surah?: number; ayah?: number; arabic?: string; translation?: string; reference?: string }
-  hadith_theme?: string
+  quran?: LiveVerse[]
+  hadith_themes?: string[]
   practical_steps?: string[]
   dua?: { arabic?: string; transliteration?: string; translation?: string }
 }
@@ -32,15 +36,28 @@ const FALLBACK: GuidanceResponse = {
     'Consistent dhikr returns us to presence and surrender',
     'Patience (ṣabr) is itself an act of worship that Allah rewards',
   ],
-  quranVerse: {
-    arabic: 'أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ',
-    translation: 'Verily, in the remembrance of Allah do hearts find rest.',
-    reference: "Surah Ar-Ra'd, 13:28",
-  },
-  hadith: {
-    text: 'How wonderful is the affair of the believer, for all his affairs are good. If something good happens to him, he is thankful, and that is good for him; and if something bad happens to him, he bears it with patience, and that is good for him.',
-    source: 'Sahih Muslim 2999',
-  },
+  quranVerses: [
+    {
+      arabic: 'أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ',
+      translation: 'Verily, in the remembrance of Allah do hearts find rest.',
+      reference: "Surah Ar-Ra'd, 13:28",
+    },
+    {
+      arabic: 'فَإِنَّ مَعَ الْعُسْرِ يُسْرًا',
+      translation: 'For indeed, with hardship will be ease.',
+      reference: 'Surah Ash-Sharh, 94:5',
+    },
+  ],
+  hadiths: [
+    {
+      text: 'How wonderful is the affair of the believer, for all his affairs are good. If something good happens to him, he is thankful, and that is good for him; and if something bad happens to him, he bears it with patience, and that is good for him.',
+      source: 'Sahih Muslim 2999',
+    },
+    {
+      text: 'Know that victory comes with patience, relief with affliction, and ease with hardship.',
+      source: 'Musnad Ahmad 2803',
+    },
+  ],
   practicalSteps: [
     'Establish the five daily prayers with presence',
     'Keep the tongue moist with dhikr throughout the day',
@@ -54,18 +71,17 @@ const FALLBACK: GuidanceResponse = {
   },
 }
 
-// Verify/repair the cited verse against an authentic source so displayed text is accurate.
-async function resolveVerse(
-  quran: LivePayload['quran'],
-): Promise<GuidanceResponse['quranVerse']> {
+// Verify/repair a cited verse against an authentic source so displayed text is accurate.
+async function resolveVerse(verse: LiveVerse, index: number): Promise<Verse> {
+  const defaultVerse = FALLBACK.quranVerses[index] || FALLBACK.quranVerses[0]
   const fallbackVerse = {
-    arabic: quran?.arabic?.trim() || FALLBACK.quranVerse.arabic,
-    translation: quran?.translation?.trim() || FALLBACK.quranVerse.translation,
-    reference: quran?.reference?.trim() || FALLBACK.quranVerse.reference,
+    arabic: verse?.arabic?.trim() || defaultVerse.arabic,
+    translation: verse?.translation?.trim() || defaultVerse.translation,
+    reference: verse?.reference?.trim() || defaultVerse.reference,
   }
 
-  const surah = Number(quran?.surah)
-  const ayah = Number(quran?.ayah)
+  const surah = Number(verse?.surah)
+  const ayah = Number(verse?.ayah)
   if (!Number.isInteger(surah) || !Number.isInteger(ayah) || surah < 1 || surah > 114 || ayah < 1) {
     return fallbackVerse
   }
@@ -88,6 +104,21 @@ async function resolveVerse(
     console.error('Verse resolution failed:', error)
     return fallbackVerse
   }
+}
+
+// Resolve up to two distinct verses; falls back to defaults when the model returns too few.
+async function resolveVerses(quran: LiveVerse[] | undefined): Promise<Verse[]> {
+  const incoming = Array.isArray(quran) ? quran.slice(0, 2) : []
+  if (incoming.length === 0) return FALLBACK.quranVerses
+
+  const resolved = await Promise.all(incoming.map((v, i) => resolveVerse(v, i)))
+
+  // Guarantee two verses; top up with a distinct fallback if the model gave only one.
+  if (resolved.length < 2) {
+    const filler = FALLBACK.quranVerses.find((f) => f.reference !== resolved[0]?.reference) || FALLBACK.quranVerses[1]
+    resolved.push(filler)
+  }
+  return resolved
 }
 
 async function getLiveGuidance(question: string): Promise<LivePayload | null> {
@@ -115,7 +146,7 @@ export async function generateGuidance(question: string): Promise<GuidanceRespon
   const live = await getLiveGuidance(question)
   if (!live) return FALLBACK
 
-  const quranVerse = await resolveVerse(live.quran)
+  const quranVerses = await resolveVerses(live.quran)
 
   const keyReflections =
     Array.isArray(live.key_reflections) && live.key_reflections.length > 0
@@ -127,13 +158,15 @@ export async function generateGuidance(question: string): Promise<GuidanceRespon
       ? live.practical_steps
       : FALLBACK.practicalSteps
 
+  const hadiths = selectTwoHadith(Array.isArray(live.hadith_themes) ? live.hadith_themes : [])
+
   return {
     mode: 'groq',
     opening: live.opening?.trim() || FALLBACK.opening,
     mainGuidance: live.main_guidance?.trim() || FALLBACK.mainGuidance,
     keyReflections,
-    quranVerse,
-    hadith: selectHadith(live.hadith_theme),
+    quranVerses,
+    hadiths: hadiths.length >= 2 ? hadiths : FALLBACK.hadiths,
     practicalSteps,
     dua: {
       arabic: live.dua?.arabic?.trim() || FALLBACK.dua.arabic,

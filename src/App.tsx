@@ -9,8 +9,8 @@ interface GuidanceData {
   opening: string
   mainGuidance: string
   keyReflections: string[]
-  quranVerse: { arabic: string; translation: string; reference: string }
-  hadith: { text: string; source: string }
+  quranVerses: { arabic: string; translation: string; reference: string }[]
+  hadiths: { text: string; source: string }[]
   practicalSteps: string[]
   dua: { arabic: string; transliteration: string; translation: string }
 }
@@ -26,15 +26,28 @@ const MOCK_RESPONSE: GuidanceData = {
     'Anxiety is often a sign of forgetting: dhikr returns us to presence and surrender',
     'The Prophet ﷺ experienced hardship and modeled resilience through faith, patience, and community',
   ],
-  quranVerse: {
-    arabic: 'أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ',
-    translation: 'Verily, in the remembrance of Allah do hearts find rest.',
-    reference: 'Sūrah Ar-Raʿd, 13:28',
-  },
-  hadith: {
-    text: 'How wonderful is the case of a believer — there is good for him in everything. If prosperity attends him, he is grateful to Allah and that is good for him; and if adversity befalls him, he endures it patiently and that is also good for him.',
-    source: 'Ṣaḥīḥ Muslim, 2999',
-  },
+  quranVerses: [
+    {
+      arabic: 'أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ',
+      translation: 'Verily, in the remembrance of Allah do hearts find rest.',
+      reference: 'Sūrah Ar-Raʿd, 13:28',
+    },
+    {
+      arabic: 'فَإِنَّ مَعَ الْعُسْرِ يُسْرًا',
+      translation: 'For indeed, with hardship will be ease.',
+      reference: 'Sūrah Ash-Sharḥ, 94:5',
+    },
+  ],
+  hadiths: [
+    {
+      text: 'How wonderful is the case of a believer — there is good for him in everything. If prosperity attends him, he is grateful to Allah and that is good for him; and if adversity befalls him, he endures it patiently and that is also good for him.',
+      source: 'Ṣaḥīḥ Muslim, 2999',
+    },
+    {
+      text: 'Know that victory comes with patience, relief with affliction, and ease with hardship.',
+      source: 'Musnad Ahmad 2803',
+    },
+  ],
   practicalSteps: [
     'Establish the five daily prayers with full presence — treat salāh as a sanctuary, not a routine',
     'After each prayer, recite 33× SubḥānAllāh, 33× Alḥamdulillāh, 34× Allāhu Akbar',
@@ -54,8 +67,8 @@ function createProofBundle(query: string, data: GuidanceData) {
     'OKX Lifestyle Agent',
     query,
     data.mainGuidance,
-    data.quranVerse.reference,
-    data.hadith.source,
+    data.quranVerses.map((v) => v.reference).join('|'),
+    data.hadiths.map((h) => h.source).join('|'),
     data.practicalSteps.join('|'),
     data.dua.arabic,
   ].join('|')
@@ -363,9 +376,9 @@ function ResponseCard({ data, onReset, status }: { data: GuidanceData; onReset: 
       '',
       data.mainGuidance,
       '',
-      `Qurʾān: ${data.quranVerse.translation} — ${data.quranVerse.reference}`,
+      ...data.quranVerses.map((v) => `Qurʾān: ${v.translation} — ${v.reference}`),
       '',
-      `Ḥadīth: ${data.hadith.text} — ${data.hadith.source}`,
+      ...data.hadiths.map((h) => `Ḥadīth: ${h.text} — ${h.source}`),
     ].join('\n')
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true)
@@ -528,31 +541,42 @@ function ResponseCard({ data, onReset, status }: { data: GuidanceData; onReset: 
           }}
         >
           <SectionHeader icon={<BookOpenIcon size={14} />} title="Qurʾānic Guidance" tone="gold" />
-          <p
-            style={{
-              fontFamily: 'Amiri, serif',
-              fontSize: 'clamp(1.15rem, 2.5vw, 1.5rem)',
-              color: '#e2c97e',
-              lineHeight: 1.8,
-              direction: 'rtl',
-              textAlign: 'right',
-              marginBottom: '12px',
-            }}
-          >
-            {data.quranVerse.arabic}
-          </p>
-          <p
-            style={{
-              color: '#8a9fb8',
-              fontSize: '0.91rem',
-              lineHeight: 1.65,
-              fontStyle: 'italic',
-              marginBottom: '12px',
-            }}
-          >
-            "{data.quranVerse.translation}"
-          </p>
-          <SourceTag type="quran" reference={data.quranVerse.reference} />
+          {data.quranVerses.map((verse, i) => (
+            <div
+              key={verse.reference + i}
+              style={{
+                marginTop: i === 0 ? 0 : '20px',
+                paddingTop: i === 0 ? 0 : '20px',
+                borderTop: i === 0 ? 'none' : '1px solid rgba(200,168,90,0.12)',
+              }}
+            >
+              <p
+                style={{
+                  fontFamily: 'Amiri, serif',
+                  fontSize: 'clamp(1.15rem, 2.5vw, 1.5rem)',
+                  color: '#e2c97e',
+                  lineHeight: 1.8,
+                  direction: 'rtl',
+                  textAlign: 'right',
+                  marginBottom: '12px',
+                }}
+              >
+                {verse.arabic}
+              </p>
+              <p
+                style={{
+                  color: '#8a9fb8',
+                  fontSize: '0.91rem',
+                  lineHeight: 1.65,
+                  fontStyle: 'italic',
+                  marginBottom: '12px',
+                }}
+              >
+                "{verse.translation}"
+              </p>
+              <SourceTag type="quran" reference={verse.reference} />
+            </div>
+          ))}
         </div>
 
         <div
@@ -565,10 +589,21 @@ function ResponseCard({ data, onReset, status }: { data: GuidanceData; onReset: 
           }}
         >
           <SectionHeader icon={<HadithIcon size={14} />} title="Authentic Ḥadīth" tone="emerald" />
-          <p style={{ color: '#8a9fb8', fontSize: '0.91rem', lineHeight: 1.7, fontStyle: 'italic', marginBottom: '12px' }}>
-            "{data.hadith.text}"
-          </p>
-          <SourceTag type="hadith" reference={data.hadith.source} />
+          {data.hadiths.map((h, i) => (
+            <div
+              key={h.source + i}
+              style={{
+                marginTop: i === 0 ? 0 : '20px',
+                paddingTop: i === 0 ? 0 : '20px',
+                borderTop: i === 0 ? 'none' : '1px solid rgba(14,212,160,0.09)',
+              }}
+            >
+              <p style={{ color: '#8a9fb8', fontSize: '0.91rem', lineHeight: 1.7, fontStyle: 'italic', marginBottom: '12px' }}>
+                "{h.text}"
+              </p>
+              <SourceTag type="hadith" reference={h.source} />
+            </div>
+          ))}
         </div>
 
         <div style={{ marginBottom: '28px' }}>
@@ -785,8 +820,8 @@ export default function App() {
   const liveReady = import.meta.env.PROD
   const [status, setStatus] = useState<{ mode: 'groq' | 'fallback' | 'loading'; label: string; detail: string }>({
     mode: liveReady ? 'groq' : 'fallback',
-    label: liveReady ? 'Live • Groq ready' : 'Fallback • local mode',
-    detail: liveReady ? 'Live guidance is ready for your question.' : 'Live key not detected, so fallback guidance is active.',
+    label: 'Ready to guide',
+    detail: 'Ask your question and receive guidance rooted in the Qurʾān and Sunnah.',
   })
   const responseRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -799,7 +834,7 @@ export default function App() {
     if (!finalQ) return
     setQuery(finalQ)
     setUiState('loading')
-    setStatus({ mode: 'loading', label: 'Connecting • Groq', detail: 'Preparing a thoughtful response for you…' })
+    setStatus({ mode: 'loading', label: 'Preparing guidance', detail: 'Preparing a thoughtful response for you…' })
 
     try {
       const result = await generateGuidance(finalQ)
@@ -808,21 +843,21 @@ export default function App() {
         opening: result.opening,
         mainGuidance: result.mainGuidance,
         keyReflections: result.keyReflections,
-        quranVerse: result.quranVerse,
-        hadith: result.hadith,
+        quranVerses: result.quranVerses,
+        hadiths: result.hadiths,
         practicalSteps: result.practicalSteps,
         dua: result.dua,
       }
       setGuidance(nextGuidance)
       setStatus({
         mode: result.mode === 'groq' ? 'groq' : 'fallback',
-        label: result.mode === 'groq' ? 'Live • Groq response' : 'Fallback • local response',
-        detail: result.mode === 'groq' ? 'This guidance was generated through the live Groq path.' : 'This guidance is using the fallback path for now.',
+        label: result.mode === 'groq' ? 'Guidance ready' : 'Guidance ready',
+        detail: 'May Allah accept this guidance and grant you clarity and ease.',
       })
     } catch (error) {
       console.error(error)
       setGuidance({ ...MOCK_RESPONSE, query: finalQ })
-      setStatus({ mode: 'fallback', label: 'Fallback • local response', detail: 'The live model path did not complete, so a local response was used.' })
+      setStatus({ mode: 'fallback', label: 'Guidance ready', detail: 'May Allah accept this guidance and grant you clarity and ease.' })
     } finally {
       setUiState('response')
       setTimeout(() => {
@@ -837,8 +872,8 @@ export default function App() {
     setQuery('')
     setStatus({
       mode: liveReady ? 'groq' : 'fallback',
-      label: liveReady ? 'Live • Groq ready' : 'Fallback • local mode',
-      detail: liveReady ? 'Live guidance is ready for your question.' : 'Live key not detected, so fallback guidance is active.',
+      label: 'Ready to guide',
+      detail: 'Ask your question and receive guidance rooted in the Qurʾān and Sunnah.',
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
