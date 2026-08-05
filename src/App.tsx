@@ -350,7 +350,21 @@ function LoadingIndicator() {
   )
 }
 
-function ResponseCard({ data, onReset, status }: { data: GuidanceData; onReset: () => void; status: { mode: 'groq' | 'fallback' | 'loading'; label: string; detail: string } }) {
+function ResponseCard({
+  data,
+  onReset,
+  status,
+  followUpValue,
+  onFollowUpValueChange,
+  onFollowUpSubmit,
+}: {
+  data: GuidanceData
+  onReset: () => void
+  status: { mode: 'groq' | 'fallback' | 'loading'; label: string; detail: string }
+  followUpValue: string
+  onFollowUpValueChange: (value: string) => void
+  onFollowUpSubmit: () => void
+}) {
   const [copied, setCopied] = useState(false)
   const [digest, setDigest] = useState('')
 
@@ -695,16 +709,66 @@ function ResponseCard({ data, onReset, status }: { data: GuidanceData; onReset: 
           </p>
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center' }}>
-          <ActionButton icon={<CopyIcon size={14} />} onClick={handleCopy} tone="gold">
-            {copied ? 'Copied ✓' : 'Copy Guidance'}
-          </ActionButton>
-          <ActionButton icon={<RefreshIcon size={14} />} onClick={onReset} tone="emerald">
-            New Question
-          </ActionButton>
-          <ActionButton icon={<ShareIcon size={14} />} onClick={() => {}} tone="muted">
-            Share
-          </ActionButton>
+        <div
+          style={{
+            marginTop: '24px',
+            padding: '16px',
+            borderRadius: '14px',
+            background: 'rgba(7, 20, 30, 0.82)',
+            border: '1px solid rgba(14,212,160,0.16)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)',
+          }}
+        >
+          <p
+            style={{
+              margin: '0 0 10px',
+              fontSize: '0.68rem',
+              textTransform: 'uppercase',
+              letterSpacing: '0.14em',
+              color: '#6f9aa3',
+            }}
+          >
+            Continue Asking
+          </p>
+          <textarea
+            rows={2}
+            value={followUpValue}
+            onChange={(e) => onFollowUpValueChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                onFollowUpSubmit()
+              }
+            }}
+            placeholder="Ask a follow-up question without starting over..."
+            style={{
+              width: '100%',
+              resize: 'none',
+              borderRadius: '12px',
+              padding: '12px 14px',
+              fontSize: '0.88rem',
+              lineHeight: 1.65,
+              outline: 'none',
+              background: 'rgba(8,16,32,0.92)',
+              border: '1px solid rgba(14,212,160,0.18)',
+              color: '#dde8f8',
+              boxSizing: 'border-box',
+            }}
+          />
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center', marginTop: '12px' }}>
+            <ActionButton icon={<RefreshIcon size={14} />} onClick={onFollowUpSubmit} tone="emerald" disabled={!followUpValue.trim()}>
+              Ask Follow-up
+            </ActionButton>
+            <ActionButton icon={<RefreshIcon size={14} />} onClick={onReset} tone="muted">
+              New Question
+            </ActionButton>
+            <ActionButton icon={<CopyIcon size={14} />} onClick={handleCopy} tone="gold">
+              {copied ? 'Copied ✓' : 'Copy Guidance'}
+            </ActionButton>
+            <ActionButton icon={<ShareIcon size={14} />} onClick={() => {}} tone="muted">
+              Share
+            </ActionButton>
+          </div>
         </div>
       </div>
     </div>
@@ -835,6 +899,7 @@ function FeatureCard({
 
 export default function App() {
   const [query, setQuery] = useState('')
+  const [followUpQuery, setFollowUpQuery] = useState('')
   const [uiState, setUiState] = useState<UIState>('idle')
   const [guidance, setGuidance] = useState<GuidanceData | null>(null)
   const [variant, setVariant] = useState<Variant>('serene')
@@ -854,6 +919,7 @@ export default function App() {
     const finalQ = (q ?? query).trim()
     if (!finalQ) return
     setQuery(finalQ)
+    setFollowUpQuery('')
     setUiState('loading')
     setStatus({ mode: 'loading', label: 'Preparing guidance', detail: 'Preparing a thoughtful response for you…' })
 
@@ -892,6 +958,7 @@ export default function App() {
     setUiState('idle')
     setGuidance(null)
     setQuery('')
+    setFollowUpQuery('')
     setStatus({
       mode: liveReady ? 'groq' : 'fallback',
       label: 'Ready to guide',
@@ -1162,7 +1229,14 @@ export default function App() {
             padding: '0 16px clamp(48px, 8vh, 80px)',
           }}
         >
-          <ResponseCard data={guidance} onReset={reset} status={status} />
+          <ResponseCard
+            data={guidance}
+            onReset={reset}
+            status={status}
+            followUpValue={followUpQuery}
+            onFollowUpValueChange={setFollowUpQuery}
+            onFollowUpSubmit={() => submit(followUpQuery)}
+          />
         </section>
       )}
 
