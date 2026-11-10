@@ -1,160 +1,177 @@
-# HikmahGuide — The Book
+# HikmahGuide: The Book
 
-_How HikmahGuide was built, how it produces guidance, and the authentic sources and libraries it relies on._
+_How HikmahGuide works, how it keeps its answers tied to authentic sources, and how conversations are kept._
 
-HikmahGuide is a calm, dark-themed web companion that offers reflective Islamic guidance. A user asks a question in plain language; the app responds with a warm opening, a convincing explanation rooted in the way of the Prophet Muhammad ﷺ, two Qur'anic verses, two authentic ḥadīth, practical steps, an authentic duʿāʾ, and a reproducible proof hash of the response.
+HikmahGuide is a calm, dark themed web companion for reflective Islamic guidance. You ask in plain language, and it answers with a warm reflection, two verses of the Qurʾān, two ḥadīth, practical steps and a duʿāʾ, each with its reference. The conversation carries on from question to question and is saved on your device, so you can return to it.
 
-This document explains how each part is made and where the material comes from.
+This document explains how each part is made, and where the material comes from.
 
 ---
 
-## 1. What the app produces
-
-For every question, HikmahGuide returns a single guidance card containing:
+## 1. What an answer contains
 
 | Section | Contents |
 |---|---|
-| **Opening** | 2–3 warm sentences acknowledging the person's situation |
-| **Main guidance** | ~150–220 words grounded in the sunnah and character of the Prophet ﷺ |
-| **Key reflections** | 3–4 short reflective insights |
-| **Qur'anic guidance** | **Two** distinct verses, each verified against an authentic Qur'an source |
-| **Authentic ḥadīth** | **Two** distinct ḥadīth pulled from a curated, source-cited library |
-| **Practical steps** | 4–5 concrete, actionable steps |
-| **Suggested Duʿāʾ** | An authentic supplication from _Hisnul Muslim_, with its source |
-| **Proof / Hash** | `SHA-256(question + timestamp)` — a reproducible integrity hash |
+| **Opening** | One or two warm sentences that acknowledge your situation |
+| **Main guidance** | A reflection of about 130 to 200 words, with citation chips such as [Q1] and [H2] |
+| **How it was made** | A badge: written from the sources, or compiled directly from them |
+| **Key reflections** | Three or four short insights |
+| **Qurʾānic guidance** | Two distinct verses, fetched live, with a verification badge and a link to Quran.com |
+| **Authentic ḥadīth** | Two distinct narrations from the curated library, with reference, grade and a link to Sunnah.com |
+| **Practical steps** | Four or five concrete steps |
+| **Suggested duʿāʾ** | A supplication from _Hisnul Muslim_ with its source |
+| **Notes** | A care message if someone may be in danger, and a note to ask a scholar if a ruling was requested |
+| **Follow up questions** | Suggestions that continue the conversation |
+| **Proof / Hash** | `SHA-256(question + timestamp)`, reproducible from the two values shown |
 
 ---
 
-## 2. How it was made
+## 2. The core idea: sources first, the model second
 
-### 2.1 Architecture at a glance
+Language models are fluent, and fluency is exactly the danger. They will happily produce a lovely ḥadīth with a wrong or invented reference. For religious content that is not acceptable, so HikmahGuide is built around one rule:
 
-HikmahGuide is a single-page React + TypeScript app built with Vite. It has one serverless function that talks to the language model, and a set of local TypeScript libraries that guarantee the religious content is authentic rather than model-invented.
+> **The model may only write about scripture that was retrieved for it, and everything it writes is checked.**
 
-```
-User question
-      │
-      ▼
-  src/App.tsx ─────────────► src/lib/hikmahGuide.ts  (orchestrator)
-                                   │
-        ┌──────────────────────────┼───────────────────────────┐
-        ▼                          ▼                            ▼
-  /api/guidance.ts          src/lib/islamicApi.ts      src/lib/hadithLibrary.ts
-  (Groq LLM — themes         (verifies Qur'an verses     src/lib/duaLibrary.ts
-   + guidance prose)          against a live API)        (curated authentic text)
-```
+The work is split like this:
 
-### 2.2 The core design decision: themes, not text
+1. **The model understands.** It reads your question (and the recent chat) and picks one to three theme keys from a fixed list, such as anxiety, patience or family. It also flags questions that are out of scope, that ask for a ruling, or that suggest someone may be in danger.
+2. **The code retrieves.** Verses are chosen from a Qurʾān topic index and fetched live. Ḥadīth and duʿāʾ are chosen from curated libraries. Anything already shown in this chat is skipped, so a follow up brings new material.
+3. **The model writes.** It receives the retrieved texts as numbered sources and writes a reflection around them. It must tag every religious statement, and it is told not to mention any other verse, ḥadīth, scholar or story.
+4. **The code checks.** The guard goes through every sentence (see section 4).
+5. **The page shows it all.** Citation chips in the text jump to the matching source card, and each card links to the original.
 
-The single most important idea in HikmahGuide is this:
-
-> **The language model is never trusted to write the Arabic text of a ḥadīth or a duʿāʾ, or to invent a citation.**
-
-Language models are fluent but they hallucinate — they will happily produce a plausible-sounding ḥadīth with a wrong or fabricated reference number. That is unacceptable for religious content.
-
-So the model is only asked to do what it is genuinely good at:
-
-1. Write the reflective prose (opening, main guidance, key reflections, practical steps).
-2. Cite two Qur'an verses **by surah and ayah number** — which we then independently verify.
-3. Choose **theme keywords** (for ḥadīth and duʿāʾ) from a fixed allowed list.
-
-The actual ḥadīth text, duʿāʾ text, and their citations come from **curated local libraries** that were written and checked by a human, not generated at request time.
-
-### 2.3 The request flow
-
-1. **User asks a question** in [src/App.tsx](src/App.tsx). A timestamp is recorded (`Date.now()`).
-2. The question is sent to the serverless endpoint [api/guidance.ts](api/guidance.ts).
-3. That endpoint calls the **Groq** API (model `llama-3.3-70b-versatile`) with a strict system prompt that forces a single JSON object matching a fixed schema. It returns:
-   - the prose sections,
-   - two Qur'an references (`surah` + `ayah` + text),
-   - two `hadith_themes` from the allowed list,
-   - one `dua_theme` from the allowed list.
-4. Back in [src/lib/hikmahGuide.ts](src/lib/hikmahGuide.ts):
-   - **Qur'an verses are verified.** Each cited verse is fetched from the AlQuran Cloud API (`getAyah`) in both Arabic (`quran-uthmani`) and English (`en.sahih`). The displayed Arabic, translation, and reference come from that authoritative source — not from the model. If verification fails, a vetted fallback verse is used.
-   - **Ḥadīth are selected locally.** `selectTwoHadith(themes)` picks two distinct, source-cited ḥadīth from [src/lib/hadithLibrary.ts](src/lib/hadithLibrary.ts).
-   - **The duʿāʾ is selected locally.** `selectDua(theme)` picks one authentic supplication from [src/lib/duaLibrary.ts](src/lib/duaLibrary.ts).
-5. The assembled response is rendered as the guidance card, ending with the proof hash.
-
-### 2.4 The proof / hash
-
-Each response shows a reproducible integrity hash:
+### Architecture
 
 ```
-0x<64 hex chars>
+Question + recent chat
+        │
+        ▼
+  src/App.tsx ───────────────► /api/guidance  (server/handler.ts)
+                                      │
+                                      ▼
+                             server/service.ts
+        ┌───────────────┬─────────────┼───────────────┬──────────────────┐
+        ▼               ▼             ▼               ▼                  ▼
+   classify        Qurʾān index   ḥadīth + duʿāʾ    write (model)     guard
+   (model +        + live fetch   libraries         from sources      checks every
+    lexicon)       AlQuran Cloud  + grades          only              sentence
+```
+
+---
+
+## 3. Authentic sources
+
+### 3.1 Qurʾān
+
+- Source: [AlQuran Cloud](https://alquran.cloud). Arabic from `quran-uthmani`, English from `en.sahih` (Saheeh International).
+- The app stores only references (surah and ayah), never verse text. The text is fetched when the answer is made.
+- Each reply is checked: the verse number, the surah number and the edition must be exactly what was asked for, or it is discarded.
+- The service allows 12 requests a second. Each verse is one request, results are cached, and rate limit replies are retried after a short pause.
+- If verification is not possible, the app shows fewer verses and says so. It never falls back to unchecked text.
+
+Each verse is shown on its own, so the index leaves out verses that only make sense next to their neighbours. For example it does not use a verse that opens with a ruling about fighting, or one that begins with an exception clause, even when a phrase inside it is often quoted.
+
+### 3.2 Ḥadīth
+
+The curated ḥadīth come from the major collections, cited with sunnah.com style numbers: Ṣaḥīḥ al-Bukhārī, Ṣaḥīḥ Muslim, Sunan al-Tirmidhī, Sunan Abī Dāwūd, Sunan an-Nasā’ī, Sunan Ibn Mājah and Musnad Aḥmad.
+
+They were checked against the open [hadith-api](https://github.com/fawazahmed0/hadith-api) dataset, and that check found real problems:
+
+- One citation pointed at a different narration, so it was removed.
+- Two narrations were graded weak (one "very weak"), so they were removed.
+- A duʿāʾ was cited to the wrong collection for its exact wording, so the citation was corrected.
+
+**Inclusion rule.** A narration is dropped if al-Albānī grades it weak, or if two or more graders in the dataset do. Where a single stricter grader dissents from the rest, the narration stays, and the label names whose grading is shown. Narrations in Ṣaḥīḥ al-Bukhārī and Ṣaḥīḥ Muslim are labelled as coming from a Ṣaḥīḥ collection.
+
+Two Musnad Aḥmad narrations (2803 and 8952) are not in the open dataset. They show no grade and no link, and should be checked by hand.
+
+### 3.3 Duʿāʾ
+
+Supplications come from _Hisnul Muslim_ (Fortress of the Muslim) by Saʿīd bin ʿAlī bin Wahf al-Qaḥṭānī. Each is paired with the narration or verse it comes from, and the audit checks that the cited source really contains that supplication.
+
+### 3.4 The audit
+
+`npm run audit:sources` repeats these checks live whenever you want:
+
+1. Every verse in the index is fetched through the app's own client, so the live service and the client stay in agreement.
+2. Every ḥadīth citation must point at a narration with the same content, and the grade table must match the dataset.
+3. Every duʿāʾ must match what it cites.
+
+---
+
+## 4. The guard
+
+Whatever the model writes goes through `server/guard.ts`. A sentence is removed when it:
+
+- cites a ḥadīth collection, a ḥadīth number, or a verse number of its own,
+- says that Allah, the Prophet ﷺ, a companion or the Qurʾān said or taught something, without a tag for a numbered source,
+- puts words in quotation marks that cannot be found in the retrieved sources,
+- uses a tag for a source that does not exist (the tag is removed, and the claim goes with it).
+
+It also strips markdown, HTML and links. If too little of the model's reflection survives, the main guidance is compiled directly from the sources, and the badge on the card changes to say so. The guard is covered by tests, and those tests were checked by turning the guard off and watching them fail.
+
+Prompt injection is handled in layers. The model's output is untrusted, scripture is never taken from it, and the guard removes unsourced claims, so a message like "ignore your rules" cannot make the app display invented scripture.
+
+---
+
+## 5. Conversations that continue and come back
+
+- The chat is a thread. Each question and answer is added below the last, and the recent turns go with each question so follow ups make sense.
+- Every chat is saved in the browser's local storage, along with its answers. On return, the last open chat is restored.
+- The sidebar lists chats by day, with search (it also searches what you asked), rename and delete, and a clear all button. On phones it is a drawer.
+- A chat gets a short title from its first answer, which you can change.
+- If an answer never arrived, for example because the tab was closed, the chat shows a clear "try again" prompt.
+- Chats stay on the device. There is no account and no chat database, so they do not follow you to another browser or phone.
+
+How saving is kept safe:
+
+- Everything read back is validated again. Damaged or edited records are skipped, ids must match a strict pattern, and links are rebuilt from validated numbers.
+- If the browser's storage is full, the oldest chats are removed to make room. If saving still fails, a message says so, and the chat keeps working in memory.
+- In private modes where storage is blocked, the app says that chats will end when the tab closes.
+- Changes in one tab appear in other tabs.
+
+---
+
+## 6. The proof hash
+
+Each answer has a hash you can reproduce:
+
+```
+0x<64 hex characters>
 SHA-256("<your question>" + <ISO timestamp>)
 ```
 
-It is computed **client-side** using the browser's Web Crypto API (`crypto.subtle.digest('SHA-256', …)`) over the exact question text concatenated with the ISO timestamp shown. Anyone can reproduce it: take the shown question and timestamp, run SHA-256, and you get the same digest.
-
-This demonstrates the transparency/auditability model of the OKX.AI ecosystem in the **Lifestyle Companion** track — an honest, verifiable fingerprint of the response. It is an integrity hash, not an on-chain attestation.
-
-### 2.5 Reliability: fallback mode
-
-If the live model is unreachable (or the app runs in local dev), HikmahGuide serves a vetted `FALLBACK` response so the user always receives coherent, source-backed guidance. The two-verse and two-ḥadīth guarantees are enforced with top-up logic so the card is never partially empty.
+It is computed in the browser with the Web Crypto API. Take the question and timestamp shown, run SHA-256, and you get the same digest. It is an integrity fingerprint, not an on-chain attestation.
 
 ---
 
-## 3. Authentic sources referenced
+## 7. Reliability
 
-HikmahGuide's religious content is anchored to recognised, authentic sources.
-
-### 3.1 Qur'an
-- **AlQuran Cloud API** — `https://api.alquran.cloud/v1`
-  - Arabic edition: `quran-uthmani`
-  - English edition: `en.sahih` (Sahih International translation)
-  - Every displayed verse is fetched live from this API by surah:ayah, so the Arabic text and translation are authoritative rather than model-generated.
-
-### 3.2 Ḥadīth
-The curated ḥadīth in [src/lib/hadithLibrary.ts](src/lib/hadithLibrary.ts) are drawn from the major authentic collections, cited with the widely used **sunnah.com** reference numbers:
-- **Ṣaḥīḥ al-Bukhārī**
-- **Ṣaḥīḥ Muslim**
-- **Sunan al-Tirmidhī**
-- **Sunan Abī Dāwūd**
-- **Sunan Ibn Mājah**
-- **Sunan an-Nasā'ī**
-- **Musnad Aḥmad**
-
-### 3.3 Supplications (Duʿāʾ)
-The supplications in [src/lib/duaLibrary.ts](src/lib/duaLibrary.ts) are taken from **_Hisnul Muslim_ (Fortress of the Muslim)** by Saʿīd bin ʿAlī bin Wahf al-Qaḥṭānī, with each duʿāʾ paired with its original source (a verse of the Qur'an or a ḥadīth from Bukhārī, Muslim, Abū Dāwūd, al-Tirmidhī, or Ibn Mājah).
-
-> **Verification note:** The ḥadīth and duʿāʾ text and citations were compiled by hand and should be spot-checked against a printed _Hisnul Muslim_ or sunnah.com before public release. Qur'an verses are verified automatically at runtime against the AlQuran Cloud API.
-
----
-
-## 4. Libraries and tools used
-
-### 4.1 Runtime dependencies
-| Library | Role |
+| What goes wrong | What happens |
 |---|---|
-| **react** / **react-dom** | UI framework |
-| **groq-sdk** | Client for the Groq LLM API (model `llama-3.3-70b-versatile`) |
-| **axios** | HTTP client used to fetch and verify Qur'an verses |
-| **lucide-react** | Icon set used in the interface |
+| No model key, or the model is down | The answer is compiled directly from the verified sources, and says so |
+| The model breaks the rules | Those sentences are removed, or the main guidance is compiled from the sources |
+| The Qurʾān service is down | Fewer verses are shown, with a note, and nothing unverified is displayed |
+| The browser is offline | The question stays in the chat with a "try again" button |
+| Too many requests | A friendly message with how long to wait |
 
-### 4.2 Build / dev tooling
+---
+
+## 8. Libraries and tools
+
 | Tool | Role |
 |---|---|
-| **vite** | Dev server and production bundler |
-| **typescript** | Type checking (`tsc`) and language |
-| **@vercel/node** | Types for the serverless guidance function |
-
-### 4.3 Browser / platform APIs
-| API | Role |
-|---|---|
-| **Web Crypto API** (`crypto.subtle`) | Real SHA-256 hashing for the proof section |
-| **AlQuran Cloud API** | Live Qur'an verse verification |
-
-### 4.4 Project's own libraries
-| File | Role |
-|---|---|
-| [src/lib/hikmahGuide.ts](src/lib/hikmahGuide.ts) | Orchestrates a response: calls the model, verifies verses, selects ḥadīth and duʿāʾ |
-| [src/lib/islamicApi.ts](src/lib/islamicApi.ts) | Thin wrapper over the AlQuran Cloud (and hadith) APIs |
-| [src/lib/hadithLibrary.ts](src/lib/hadithLibrary.ts) | Curated, theme-keyed authentic ḥadīth with citations |
-| [src/lib/duaLibrary.ts](src/lib/duaLibrary.ts) | Curated, theme-keyed _Hisnul Muslim_ supplications with citations |
-| [api/guidance.ts](api/guidance.ts) | Serverless function; the only place the LLM is called |
+| React, React DOM | The interface |
+| TypeScript | Types across the browser and the server |
+| Vite | Dev server and production build. In dev it also serves the API route |
+| Vitest | Unit tests, and the live audit |
+| groq-sdk | Client for the writing model |
+| Web Crypto | The proof hash |
+| AlQuran Cloud | Live verse text |
+| hadith-api (dataset) | Independent check of the ḥadīth library |
 
 ---
 
-## 5. Disclaimer
+## 9. Disclaimer
 
-HikmahGuide is a tool for reflection and educational support. It does not issue fatwas, does not predict the future, and is not a substitute for qualified Islamic scholarship on legal or religious rulings. For binding rulings, consult a knowledgeable scholar.
+HikmahGuide is a tool for reflection and educational support. It does not issue fatwas, does not predict the future, and is not a substitute for qualified Islamic scholarship on legal or religious rulings. For binding rulings, please consult a knowledgeable scholar.

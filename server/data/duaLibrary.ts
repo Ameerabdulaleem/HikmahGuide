@@ -83,7 +83,7 @@ export const DUA_LIBRARY: Record<string, Dua[]> = {
       transliteration: 'Rabbi-ghfir lī wa tub ʿalayya innaka antat-tawwābur-raḥīm',
       translation:
         'My Lord, forgive me and accept my repentance. Verily, You are the Ever-Relenting, the Most Merciful.',
-      source: 'Hisnul Muslim; Sunan Abi Dawud 1516',
+      source: 'Hisnul Muslim; Sunan Ibn Majah 3814',
     },
   ],
   repentance: [
@@ -102,7 +102,7 @@ export const DUA_LIBRARY: Record<string, Dua[]> = {
       transliteration: 'Rabbi-ghfir lī wa tub ʿalayya innaka antat-tawwābur-raḥīm',
       translation:
         'My Lord, forgive me and accept my repentance. Verily, You are the Ever-Relenting, the Most Merciful.',
-      source: 'Hisnul Muslim; Sunan Abi Dawud 1516',
+      source: 'Hisnul Muslim; Sunan Ibn Majah 3814',
     },
   ],
   trust: [

@@ -85,10 +85,6 @@ export const HADITH_LIBRARY: Record<string, Hadith[]> = {
       text: 'All the children of Adam constantly err, but the best of those who constantly err are those who constantly repent.',
       source: 'Sunan al-Tirmidhi 2499',
     },
-    {
-      text: 'The one who repents from sin is like one who has no sin.',
-      source: 'Sunan Ibn Majah 4250',
-    },
   ],
   provision: [
     {
@@ -148,10 +144,6 @@ export const HADITH_LIBRARY: Record<string, Hadith[]> = {
     {
       text: 'Whoever travels a path in search of knowledge, Allah will make easy for him a path to Paradise.',
       source: 'Sahih Muslim 2699',
-    },
-    {
-      text: 'Seeking knowledge is an obligation upon every Muslim.',
-      source: 'Sunan Ibn Majah 224',
     },
     {
       text: 'When a man dies, his deeds come to an end except for three: ongoing charity, beneficial knowledge, or a righteous child who prays for him.',
@@ -238,10 +230,6 @@ export const HADITH_LIBRARY: Record<string, Hadith[]> = {
     {
       text: 'Protect yourself from the Fire even with half a date given in charity.',
       source: 'Sahih al-Bukhari 1417',
-    },
-    {
-      text: 'The believer’s shade on the Day of Resurrection will be his charity.',
-      source: 'Sunan al-Tirmidhi 604',
     },
   ],
   hope: [
