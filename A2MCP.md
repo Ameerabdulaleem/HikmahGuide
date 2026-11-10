@@ -15,7 +15,7 @@ The OKX AI marketplace lets service providers list two kinds of services:
 | **A2MCP (Agent-to-MCP)** | A standardized MCP/API service, charged **per call** or free, **no negotiation**. Best when you already have an API a consumer can call directly. | Instant, via the OKX Payment SDK |
 | **A2A (Agent-to-Agent)** | Escrow-based jobs negotiated between agents. | Escrow |
 
-HikmahGuide fits **A2MCP** perfectly: it's a stateless HTTP endpoint that takes a question and returns structured guidance. There's nothing to negotiate — it's a clean per-call service.
+HikmahGuide fits **A2MCP** perfectly: it's a stateless HTTP endpoint that takes a question (and optionally the recent conversation) and returns structured, sourced guidance. There's nothing to negotiate — it's a clean per-call service.
 
 Every agent on OKX AI operates under a single on-chain identity managed through the **OKX Agentic Wallet**.
 
@@ -25,7 +25,7 @@ _Reference: [OKX ASP docs](https://web3.okx.com/onchainos/dev-docs/okxai/asp), [
 
 ## 2. The service HikmahGuide exposes today
 
-HikmahGuide's serverless function [api/guidance.ts](api/guidance.ts) is the callable service.
+HikmahGuide's serverless function [api/guidance.ts](api/guidance.ts) is the callable service. It is stateless: a caller that wants a continuing conversation sends the recent turns with each request.
 
 **Endpoint**
 ```
@@ -33,34 +33,75 @@ POST /api/guidance
 Content-Type: application/json
 ```
 
-**Request body**
-```json
-{ "question": "How do I deal with anxiety?" }
-```
-
-**Response body (200)** — the guidance payload the consuming agent receives:
+**Request body.** Only `question` is required, so the original contract still works.
 ```json
 {
-  "opening": "…warm acknowledgement…",
-  "main_guidance": "…150–220 words rooted in the sunnah…",
-  "key_reflections": ["…", "…", "…"],
-  "quran": [
-    { "surah": 13, "ayah": 28, "arabic": "…", "translation": "…", "reference": "Surah Ar-Ra'd, 13:28" },
-    { "surah": 94, "ayah": 5,  "arabic": "…", "translation": "…", "reference": "Surah Ash-Sharh, 94:5" }
+  "question": "How do I deal with anxiety?",
+  "history": [
+    { "role": "user", "content": "I feel anxious about money" },
+    { "role": "assistant", "content": "May Allah ease your worry…" }
   ],
+  "exclude": ["quran:13:28", "hadith:bukhari:5641"]
+}
+```
+
+| Field | Rules |
+|---|---|
+| `question` | Required text, up to 1200 characters |
+| `history` | Optional, the last 12 turns are used, each up to 2000 characters, roles `user` or `assistant` |
+| `exclude` | Optional source keys already shown, so new answers bring fresh sources |
+
+**Response body (200).** Every field of the original response is kept, and the rest is new.
+```json
+{
+  "version": 2,
+  "mode": "grounded",
+  "title": "Easing anxiety",
+  "themes": ["anxiety", "trust"],
+  "opening": "…",
+  "main_guidance": "… hearts find rest [Q1] … The Prophet ﷺ taught: “…” [H1] …",
+  "key_reflections": ["…"],
+  "practical_steps": ["…"],
+  "follow_ups": ["…"],
+  "quran": [
+    {
+      "id": "Q1", "key": "quran:13:28", "surah": 13, "ayah": 28,
+      "surah_name": "Ar-Ra'd", "arabic": "…", "translation": "…",
+      "reference": "Surah Ar-Ra'd, 13:28", "edition": "quran-uthmani + en.sahih", "verified": true
+    }
+  ],
+  "hadith": [
+    {
+      "id": "H1", "key": "hadith:bukhari:5641", "collection": "bukhari", "number": 5641,
+      "text": "…", "reference": "Sahih al-Bukhari 5641", "grade": "Ṣaḥīḥ collection"
+    }
+  ],
+  "dua": { "id": "D1", "key": "dua:0a1b2c3d", "arabic": "…", "transliteration": "…", "translation": "…", "reference": "Hisnul Muslim; Sahih al-Bukhari 6369" },
+  "notes": [],
   "hadith_themes": ["anxiety", "trust"],
-  "practical_steps": ["…", "…"],
   "dua_theme": "anxiety"
 }
 ```
 
+What changed from the first version of this contract:
+
+- `quran` now holds verified verses with their real Arabic and English text. Before, it held whatever the model wrote.
+- `hadith` and `dua` now carry the full resolved text. Before, only theme names were returned and the caller had to look the text up.
+- `main_guidance` contains citation tags such as `[Q1]` and `[H1]` that point at entries in `quran`, `hadith` and `dua`.
+- `mode` is `grounded` (written by the model from the sources), `sources_only` (compiled directly from the sources) or `redirect` (outside what the service helps with, so no sources).
+- `notes` can hold a `care`, `scholar` or `degraded` message that should be shown to the person.
+- `hadith_themes` and `dua_theme` are kept for older callers.
+- With no model key configured the service now answers in `sources_only` mode. It used to return a 500.
+
 **Error responses**
 | Status | Meaning |
 |---|---|
-| `400` | `question` missing or not a string |
+| `400` | `question` missing, not text, too long, or the body is not valid |
 | `405` | Method not allowed (only POST) |
-| `500` | API key not configured / upstream model error |
-| `502` | Model response could not be parsed |
+| `415` | `Content-Type` is not `application/json` |
+| `429` | Too many requests. Wait for the number of seconds in `Retry-After` |
+| `500` | Something went wrong. The message is generic on purpose |
+| `504` | The answer took too long. Try again |
 
 This contract is what a consuming agent will invoke once the service is listed.
 
